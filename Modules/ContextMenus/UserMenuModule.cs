@@ -11,12 +11,12 @@ public class UserMenuModule : ApplicationCommandModule<ApplicationCommandContext
     {
         var interaction = (UserCommandInteraction)Context.Interaction;
         var targetUser = interaction.Data.TargetUser;
-        var avatarUrl = targetUser.GetAvatarUrl(ImageFormat.Png);
+        var avatarUrl = targetUser.GetAvatarUrl(ImageFormat.Png)?.ToString(1024);
 
         var embed = new EmbedProperties()
         {
-            Title = avatarUrl?.ToString(1024),
-            Image = avatarUrl?.ToString(1024),
+            Title = avatarUrl,
+            Image = avatarUrl,
             Color = new Color(0x2F3136)
         };
         var message = new InteractionMessageProperties()
