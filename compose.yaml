@@ -1,0 +1,7 @@
+﻿services:
+  meowbot:
+    image: meowbot
+    build:
+      context: .
+      dockerfile: Dockerfile
+
