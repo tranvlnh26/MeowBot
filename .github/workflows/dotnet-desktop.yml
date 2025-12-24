@@ -42,12 +42,12 @@ jobs:
             - name: Publish Native AOT
               run: |
                   dotnet publish MeowBot.csproj \
-                    -c Release \
-                    -r ${{ matrix.rid }} \
-                    -o ./publish \
-                    --no-restore \
-                    -p:PublishAot=true \
-                    -p:StripSymbols=true
+                            -c Release \
+                            -r ${{ matrix.rid }} \
+                            -o ./publish \
+                            -p:PublishAot=true \
+                            -p:StripSymbols=true \
+                            -p:SelfContained=true
 
             # Nén file trên Windows (sử dụng PowerShell)
             - name: Compress Artifact (Windows)
