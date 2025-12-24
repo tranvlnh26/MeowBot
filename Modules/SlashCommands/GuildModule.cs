@@ -11,7 +11,7 @@ namespace MeowBot.Modules.SlashCommands;
 
 public class GuildModule(IGuildService guildService) : ApplicationCommandModule<ApplicationCommandContext>
 {
-    [SlashCommand("config", "Mở bảng cấu hình Server")]
+    [SlashCommand("config", "Configure MeowBot")]
     public async Task<InteractionCallbackProperties<InteractionMessageProperties>> OpenSettingsAsync()
     {
         var config = await guildService.GetConfigAsync(Context.Guild!.Id);
