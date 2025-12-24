@@ -19,10 +19,6 @@ jobs:
                       rid: win-x64
                       executable: MeowBot.exe
                       archive: MeowBot-win-x64.zip
-                    - os: macos-latest
-                      rid: osx-arm64
-                      executable: MeowBot
-                      archive: MeowBot-osx-arm64.tar.gz
 
         steps:
             - name: Checkout Code
