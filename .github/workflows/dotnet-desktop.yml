@@ -1,12 +1,16 @@
-name: MeowBot Multi-OS Build & Compress
+name: MeowBot CI/CD & Release
 
 on:
     push:
-        branches: ["master"]
+        tags:
+            - "v*" # Chạy khi bạn push tag mới như v1.0.0, v1.1.0...
+
+permissions:
+    contents: write # Cấp quyền cho Action để tạo Release
 
 jobs:
-    release:
-        name: Build for ${{ matrix.os }}
+    build-and-release:
+        name: Build for ${{ matrix.rid }}
         runs-on: ${{ matrix.os }}
         strategy:
             matrix:
@@ -14,11 +18,15 @@ jobs:
                     - os: ubuntu-latest
                       rid: linux-x64
                       executable: MeowBot
-                      archive: MeowBot-linux-x64.tar.gz
+                      asset_name: MeowBot-linux-x64.tar.gz
                     - os: windows-latest
                       rid: win-x64
                       executable: MeowBot.exe
-                      archive: MeowBot-win-x64.zip
+                      asset_name: MeowBot-win-x64.zip
+                    - os: macos-latest
+                      rid: osx-arm64
+                      executable: MeowBot
+                      asset_name: MeowBot-osx-arm64.tar.gz
 
         steps:
             - name: Checkout Code
@@ -29,35 +37,41 @@ jobs:
               with:
                   dotnet-version: 9.0.x
 
-            # Cài đặt trình biên dịch cho Linux
             - name: Install Linux Dependencies
               if: matrix.os == 'ubuntu-latest'
               run: |
                   sudo apt-get update
                   sudo apt-get install -y clang zlib1g-dev
 
-            - name: Restore
-              run: dotnet restore MeowBot.sln
+            - name: Restore Dependencies
+              run: dotnet restore MeowBot.csproj -r ${{ matrix.rid }}
 
             - name: Publish Native AOT
+              shell: bash
               run: |
-                  dotnet publish MeowBot.csproj -c Release -r ${{ matrix.rid }} -o ./publish -p:PublishAot=true -p:StripSymbols=true -p:SelfContained=true
+                  dotnet publish MeowBot.csproj \
+                    -c Release \
+                    -r ${{ matrix.rid }} \
+                    -o ./publish \
+                    --no-restore \
+                    -p:PublishAot=true \
+                    -p:StripSymbols=true \
+                    -p:SelfContained=true
 
-            # Nén file trên Windows (sử dụng PowerShell)
-            - name: Compress Artifact (Windows)
+            # Bước nén để đảm bảo file tải về từ Release không bị lỗi
+            - name: Archive Binary (Windows)
               if: matrix.os == 'windows-latest'
-              run: |
-                  Compress-Archive -Path ./publish/${{ matrix.executable }} -DestinationPath ./${{ matrix.archive }}
+              shell: pwsh
+              run: Compress-Archive -Path ./publish/${{ matrix.executable }} -DestinationPath ./${{ matrix.asset_name }}
 
-            # Nén file trên Linux và macOS (sử dụng tar)
-            - name: Compress Artifact (Linux/macOS)
+            - name: Archive Binary (Linux/macOS)
               if: matrix.os != 'windows-latest'
-              run: |
-                  tar -czf ./${{ matrix.archive }} -C ./publish ${{ matrix.executable }}
+              run: tar -czf ./${{ matrix.asset_name }} -C ./publish ${{ matrix.executable }}
 
-            # Upload file đã nén
-            - name: Upload Compressed Artifacts
-              uses: actions/upload-artifact@v4
+            # Upload lên GitHub Release
+            - name: Upload to GitHub Release
+              uses: softprops/action-gh-release@v2
               with:
-                  name: ${{ matrix.archive }}
-                  path: ./${{ matrix.archive }}
+                  files: ${{ matrix.asset_name }}
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
