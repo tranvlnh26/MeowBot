@@ -1,83 +1,73 @@
-# This workflow uses actions that are not certified by GitHub.
-# They are provided by a third-party and are governed by
-# separate terms of service, privacy policy, and support
-# documentation.
-
-# This workflow will build, test, sign and package a WPF or Windows Forms desktop application
-# built on .NET Core.
-# To learn how to migrate your existing application to .NET Core,
-# refer to https://docs.microsoft.com/en-us/dotnet/desktop-wpf/migration/convert-project-from-net-framework
-#
-# To configure this workflow:
-#
-# 1. Configure environment variables
-# GitHub sets default environment variables for every workflow run.
-# Replace the variables relative to your project in the "env" section below.
-#
-# 2. Signing
-# Generate a signing certificate in the Windows Application
-# Packaging Project or add an existing signing certificate to the project.
-# Next, use PowerShell to encode the .pfx file using Base64 encoding
-# by running the following Powershell script to generate the output string:
-#
-# $pfx_cert = Get-Content '.\SigningCertificate.pfx' -Encoding Byte
-# [System.Convert]::ToBase64String($pfx_cert) | Out-File 'SigningCertificate_Encoded.txt'
-#
-# Open the output file, SigningCertificate_Encoded.txt, and copy the
-# string inside. Then, add the string to the repo as a GitHub secret
-# and name it "Base64_Encoded_Pfx."
-# For more information on how to configure your signing certificate for
-# this workflow, refer to https://github.com/microsoft/github-actions-for-desktop-apps#signing
-#
-# Finally, add the signing certificate password to the repo as a secret and name it "Pfx_Key".
-# See "Build the Windows Application Packaging project" below to see how the secret is used.
-#
-# For more information on GitHub Actions, refer to https://github.com/features/actions
-# For a complete CI/CD sample to get started with GitHub Action workflows for Desktop Applications,
-# refer to https://github.com/microsoft/github-actions-for-desktop-apps
-
-name: .NET Core Desktop
+name: MeowBot Multi-OS Build & Compress
 
 on:
-  push:
-    branches: [ "master" ]
-  pull_request:
-    branches: [ "master" ]
+    push:
+        branches: ["master"]
 
 jobs:
+    release:
+        name: Build for ${{ matrix.os }}
+        runs-on: ${{ matrix.os }}
+        strategy:
+            matrix:
+                include:
+                    - os: ubuntu-latest
+                      rid: linux-x64
+                      executable: MeowBot
+                      archive: MeowBot-linux-x64.tar.gz
+                    - os: windows-latest
+                      rid: win-x64
+                      executable: MeowBot.exe
+                      archive: MeowBot-win-x64.zip
+                    - os: macos-latest
+                      rid: osx-arm64
+                      executable: MeowBot
+                      archive: MeowBot-osx-arm64.tar.gz
 
-  build:
+        steps:
+            - name: Checkout Code
+              uses: actions/checkout@v4
 
-    strategy:
-      matrix:
-        configuration: [Debug, Release]
+            - name: Setup .NET
+              uses: actions/setup-dotnet@v4
+              with:
+                  dotnet-version: 9.0.x
 
-    runs-on: windows-latest  # For a list of available runner types, refer to
-                             # https://help.github.com/en/actions/reference/workflow-syntax-for-github-actions#jobsjob_idruns-on
+            # Cài đặt trình biên dịch cho Linux
+            - name: Install Linux Dependencies
+              if: matrix.os == 'ubuntu-latest'
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install -y clang zlib1g-dev
 
-    env:
-      Solution_Name: MeowBot.sln                         # Replace with your solution name, i.e. MyWpfApp.sln.
-      Test_Project_Path: MeowBot.csproj                 # Replace with the path to your test project, i.e. MyWpfApp.Tests\MyWpfApp.Tests.csproj.
-     
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
+            - name: Restore
+              run: dotnet restore MeowBot.sln
 
-    # Install the .NET Core workload
-    - name: Install .NET Core
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: 9.0.x
+            - name: Publish Native AOT
+              run: |
+                  dotnet publish MeowBot.csproj \
+                    -c Release \
+                    -r ${{ matrix.rid }} \
+                    -o ./publish \
+                    --no-restore \
+                    -p:PublishAot=true \
+                    -p:StripSymbols=true
 
-    # Add  MSBuild to the PATH: https://github.com/microsoft/setup-msbuild
-    - name: Setup MSBuild.exe
-      uses: microsoft/setup-msbuild@v2
+            # Nén file trên Windows (sử dụng PowerShell)
+            - name: Compress Artifact (Windows)
+              if: matrix.os == 'windows-latest'
+              run: |
+                  Compress-Archive -Path ./publish/${{ matrix.executable }} -DestinationPath ./${{ matrix.archive }}
 
-    # Restore the application to populate the obj folder with RuntimeIdentifiers
-    - name: Restore the application
-      run: msbuild $env:Solution_Name /t:Restore /p:Configuration=$env:Configuration
-      env:
-        Configuration: ${{ matrix.configuration }}
+            # Nén file trên Linux và macOS (sử dụng tar)
+            - name: Compress Artifact (Linux/macOS)
+              if: matrix.os != 'windows-latest'
+              run: |
+                  tar -czf ./${{ matrix.archive }} -C ./publish ${{ matrix.executable }}
 
+            # Upload file đã nén
+            - name: Upload Compressed Artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ${{ matrix.archive }}
+                  path: ./${{ matrix.archive }}
