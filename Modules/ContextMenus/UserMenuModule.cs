@@ -1,12 +1,14 @@
-﻿using NetCord;
+﻿using Microsoft.Extensions.Logging;
+using NetCord;
 using NetCord.Rest;
 using NetCord.Services.ApplicationCommands;
+using Npgsql;
 
 namespace MeowBot.Modules.ContextMenus;
 
 public class UserMenuModule : ApplicationCommandModule<ApplicationCommandContext>
 {
-    [UserCommand("Avatar")]
+    [UserCommand("Avatar Url")]
     public InteractionCallbackProperties<InteractionMessageProperties> GetAvatar()
     {
         var interaction = (UserCommandInteraction)Context.Interaction;
@@ -23,7 +25,6 @@ public class UserMenuModule : ApplicationCommandModule<ApplicationCommandContext
         {
             Embeds = [embed]
         };
-
 
         return InteractionCallback.Message(message);
     }

@@ -12,18 +12,20 @@ public class GuildRepository(NpgsqlDataSource dataSource) : IGuildRepository
 {
     public async Task<GuildConfig?> GetConfigAsync(ulong guildId)
     {
-        const string sql = "SELECT config FROM guilds WHERE guild_id = @guildId";
+        const string sql = "SELECT config, last_updated FROM guilds WHERE guild_id = @guildId";
         await using var cmd = dataSource.CreateCommand(sql);
         cmd.Parameters.AddWithValue("guildId", (long)guildId);
 
         await using var reader = await cmd.ExecuteReaderAsync(CommandBehavior.SequentialAccess);
 
         if (!await reader.ReadAsync()) return null;
+        var json  =  reader.GetString(0);
+        var config = JsonSerializer.Deserialize(json, BotJsonContext.Default.GuildConfig);
 
-        await using var stream = reader.GetStream(0);
-        var config = await JsonSerializer.DeserializeAsync(stream, BotJsonContext.Default.GuildConfig);
-
-        if (config != null) config.GuildId = guildId;
+        if (config == null) return null;
+        
+        config.GuildId = guildId;
+        config.LastUpdated = reader.GetDateTime(1);
         return config;
     }
 

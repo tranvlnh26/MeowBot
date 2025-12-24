@@ -5,5 +5,5 @@ namespace MeowBot.Abstractions.Services;
 public interface IGuildService
 {
     Task<GuildConfig> GetConfigAsync(ulong guildId);
-    Task SaveConfigAsync(GuildConfig config);
+    void SaveConfigAsync(GuildConfig config);
 }
